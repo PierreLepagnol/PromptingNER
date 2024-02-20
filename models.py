@@ -1,18 +1,20 @@
 import os
-from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
-import openai
 
-import utils
+import openai
+from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+
+import myutils
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 
 class OpenAIGPT:
-    #model = "text-davinci-003"
-    #model = "gpt-4"
+    # model = "text-davinci-003"
+    # model = "gpt-4"
     model = "gpt-3.5-turbo"
-    #model = "davinci"
+    # model = "davinci"
     seconds_per_query = (60 / 20) + 0.01
+
     @staticmethod
     def request_model(prompt):
         return openai.Completion.create(model=OpenAIGPT.model, prompt=prompt, max_tokens=250)
@@ -53,10 +55,9 @@ class OpenAIGPT:
 
 
 class HugginFaceModel:
-    def query(self, prompt):
-        inputs = self.tokenizer(prompt, return_tensors="pt").to(utils.Parameters.devices[0])
-        outputs = self.model.generate(**inputs, max_new_tokens=200)
-        return self.tokenizer.batch_decode(outputs, skip_special_tokens=True)[0]
+    def __init__(self, size="large"):
+        self.model = AutoModelForSeq2SeqLM.from_pretrained(f"google/flan-t5-{size}")
+        self.tokenizer = AutoTokenizer.from_pretrained(f"google/flan-t5-{size}", model_max_length=600)
 
     def __call__(self, prompt):
         return self.query(prompt)
@@ -64,13 +65,13 @@ class HugginFaceModel:
 
 class T5(HugginFaceModel):
     def __init__(self, size="large"):
-        self.model = AutoModelForSeq2SeqLM.from_pretrained(f"google/flan-t5-{size}").to(utils.Parameters.devices[0])
+        self.model = AutoModelForSeq2SeqLM.from_pretrained(f"google/flan-t5-{size}")
         self.tokenizer = AutoTokenizer.from_pretrained(f"google/flan-t5-{size}", model_max_length=600)
 
 
 class ParallelHuggingFaceModel(HugginFaceModel):
     def parallel(self, num_layers=24, num_devices=4):
-        self.devices = utils.Parameters.get_device_ints(num_devices)
+        # self.devices = myutils.Parameters.get_device_ints(num_devices)
         layer_per_device = num_layers // num_devices
         device_map = {}
         start = 0
@@ -78,12 +79,12 @@ class ParallelHuggingFaceModel(HugginFaceModel):
             if i == len(self.devices) - 1:
                 device_map[device] = [j for j in range(start, num_layers)]
             else:
-                device_map[device] = [j for j in range(start, start+layer_per_device)]
+                device_map[device] = [j for j in range(start, start + layer_per_device)]
                 start = start + layer_per_device
         self.model.parallelize(device_map)
 
     def query(self, prompt):
-        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.devices[0])
+        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
         outputs = self.model.generate(**inputs, max_new_tokens=600)
         return self.tokenizer.batch_decode(outputs, skip_special_tokens=True)[0]
 
@@ -97,9 +98,17 @@ class T5XL(ParallelHuggingFaceModel):
 
 
 class Alpaca(ParallelHuggingFaceModel):
+    model = "flan-alpaca"
+
     def __init__(self, size="base"):
-        assert size in ["base", "large",  "gpt4-xl", "xl", "xxl"]
+        assert size in ["base", "large", "gpt4-xl", "xl", "xxl"]
         layer_sizes = {"base": 12, "large": 24, "xl": 24, "gpt4-xl": 24, "xxl": 24}
-        self.tokenizer = AutoTokenizer.from_pretrained(f"declare-lab/flan-alpaca-{size}", model_max_length=600)
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            f"declare-lab/flan-alpaca-{size}", model_max_length=600
+        )
         self.model = AutoModelForSeq2SeqLM.from_pretrained(f"declare-lab/flan-alpaca-{size}")
-        self.parallel(num_layers=layer_sizes[size], num_devices=4)
+        # self.parallel(num_layers=layer_sizes[size], num_devices=4)
+
+    @staticmethod
+    def is_chat():
+        return False

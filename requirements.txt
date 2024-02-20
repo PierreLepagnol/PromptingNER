@@ -1,7 +1,8 @@
 pandas
 numpy
 tqdm
-openai
 transformers
 datasets
 nltk
+accelerate
+torch

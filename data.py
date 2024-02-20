@@ -1,8 +1,9 @@
 import os
-import pandas as pd
-from datasets import load_dataset
 import re
 import string
+
+import pandas as pd
+from datasets import load_dataset
 
 data_root = "data"
 
@@ -12,6 +13,7 @@ def get_row(func):
         if i is not None:
             frame = frame.loc[i, :]
         return func(frame, i=None)
+
     return infunc
 
 
@@ -31,7 +33,7 @@ def read_ob2(file_path):
     curr_type = None
 
     for i, line in enumerate(lines):
-        if line.strip() == "" or line == "\n" or i == len(lines)-1:
+        if line.strip() == "" or line == "\n" or i == len(lines) - 1:
             # save entity if it exists
             if curr_type is not None:
                 sub_entities.append(curr_entity.strip())
@@ -75,7 +77,9 @@ def read_ob2(file_path):
                         print(f"Should not be happening bug here")
                     curr_entity = curr_entity + " " + word
             else:
-                main_type, subtype = tag.split("-")  # must assume that if curr_type is not None then its the same one because FewNERD doesn't contain B, I information
+                main_type, subtype = tag.split(
+                    "-"
+                )  # must assume that if curr_type is not None then its the same one because FewNERD doesn't contain B, I information
                 if subtype.strip() == "government/governmentagency":
                     subtype = "government"
                 if curr_type is None:
@@ -91,7 +95,7 @@ def read_ob2(file_path):
 def write_ob2(df, dataset_folder=None, filename=None):
     assert dataset_folder is not None and filename is not None
     os.makedirs(data_root + "/" + dataset_folder, exist_ok=True)
-    with open(data_root + "/"+ dataset_folder +"/"+filename+".txt", "w") as f:
+    with open(data_root + "/" + dataset_folder + "/" + filename + ".txt", "w") as f:
         for i in df.index:
             row = df.loc[i]
             sentence = row["text"]
@@ -122,14 +126,14 @@ def load_tweetner(split="validation"):
         11: "I-location",
         12: "I-person",
         13: "I-product",
-        14: "O"
+        14: "O",
     }
     data = []
-    dset = load_dataset("tner/tweetner7")[split+"_2021"]
+    dset = load_dataset("tner/tweetner7")[split + "_2021"]
     for j in range(len(dset)):
-        text = " ".join(dset[j]['tokens'])
+        text = " ".join(dset[j]["tokens"])
         types = dset[j]["tags"]
-        sentence = dset[j]['tokens']#text.split(" ")
+        sentence = dset[j]["tokens"]  # text.split(" ")
         assert len(sentence) == len(types)
         entities = []
         d = {}
@@ -162,35 +166,37 @@ def load_tweetner(split="validation"):
 def load_fabner(split="validation"):
     dset = load_dataset("DFKI-SLT/fabner", "fabner_bio")[split]
     columns = ["text", "entities", "types", "exact_types"]
-    fabner_tag_map = {0: "O",
-                      1: "B-MATE",
-                      2: "I-MATE",
-                      3: "B-MANP",
-                      4: "I-MANP",
-                      5: "B-MACEQ",
-                      6: "I-MACEQ",
-                      7: "B-APPL",
-                      8: "I-APPL",
-                      9: "B-FEAT",
-                      10: "I-FEAT",
-                      11: "B-PRO",
-                      12: "I-PRO",
-                      13: "B-CHAR",
-                      14: "I-CHAR",
-                      15: "B-PARA",
-                      16: "I-PARA",
-                      17: "B-ENAT",
-                      18: "I-ENAT",
-                      19: "B-CONPRI",
-                      20: "I-CONPRI",
-                      21: "B-MANS",
-                      22: "I-MANS",
-                      23: "B-BIOP",
-                      24: "I-BIOP"}
+    fabner_tag_map = {
+        0: "O",
+        1: "B-MATE",
+        2: "I-MATE",
+        3: "B-MANP",
+        4: "I-MANP",
+        5: "B-MACEQ",
+        6: "I-MACEQ",
+        7: "B-APPL",
+        8: "I-APPL",
+        9: "B-FEAT",
+        10: "I-FEAT",
+        11: "B-PRO",
+        12: "I-PRO",
+        13: "B-CHAR",
+        14: "I-CHAR",
+        15: "B-PARA",
+        16: "I-PARA",
+        17: "B-ENAT",
+        18: "I-ENAT",
+        19: "B-CONPRI",
+        20: "I-CONPRI",
+        21: "B-MANS",
+        22: "I-MANS",
+        23: "B-BIOP",
+        24: "I-BIOP",
+    }
 
     data = []
     for j in range(len(dset)):
-        text = " ".join(dset[j]['tokens'])
+        text = " ".join(dset[j]["tokens"])
         types = dset[j]["ner_tags"]
         sentence = text.split(" ")
         assert len(sentence) == len(types)
@@ -222,15 +228,35 @@ def load_fabner(split="validation"):
     return df
 
 
-def load_conll2003(split="validation"):
+def load_conll2003(split="validation") -> pd.DataFrame:
     dset = load_dataset("conll2003")[split]
     columns = ["text", "entities", "types", "exact_types"]
     #'B-PER': 1, 'I-PER': 2, 'B-ORG': 3, 'I-ORG': 4, 'B-LOC': 5, 'I-LOC': 6, 'B-MISC': 7, 'I-MISC': 8}
-    conll_tag_map = {0: "none", 1: "per", 2: "per", 3: "org", 4: "org", 5: "loc", 6: "loc", 7: "misc", 8: "misc"}
-    conll_fulltagmap = {0: "O", 1: 'B-PER', 2: 'I-PER', 3: 'B-ORG', 4: 'I-ORG', 5: 'B-LOC', 6: 'I-LOC', 7: 'B-MISC', 8: 'I-MISC'}
+    conll_tag_map = {
+        0: "none",
+        1: "per",
+        2: "per",
+        3: "org",
+        4: "org",
+        5: "loc",
+        6: "loc",
+        7: "misc",
+        8: "misc",
+    }
+    conll_fulltagmap = {
+        0: "O",
+        1: "B-PER",
+        2: "I-PER",
+        3: "B-ORG",
+        4: "I-ORG",
+        5: "B-LOC",
+        6: "I-LOC",
+        7: "B-MISC",
+        8: "I-MISC",
+    }
     data = []
     for j in range(len(dset)):
-        text = " ".join(dset[j]['tokens'])
+        text = " ".join(dset[j]["tokens"])
         types = dset[j]["ner_tags"]
         sentence = text.split(" ")
         assert len(sentence) == len(types)
@@ -263,17 +289,55 @@ def load_conll2003(split="validation"):
 
 
 def load_ontonotes(split="validation", save_ob2=True):
-    dset_holder = load_dataset("conll2012_ontonotesv5", 'english_v4')[split]
+    dset_holder = load_dataset("conll2012_ontonotesv5", "english_v4")[split]
     columns = ["text", "entities", "types", "exact_types"]
-    onto_tags = ["O", "B-PERSON", "I-PERSON", "B-NORP", "I-NORP", "B-FAC", "I-FAC", "B-ORG", "I-ORG", "B-GPE", "I-GPE", "B-LOC", "I-LOC", "B-PRODUCT", "I-PRODUCT", "B-DATE", "I-DATE", "B-TIME", "I-TIME", "B-PERCENT", "I-PERCENT", "B-MONEY", "I-MONEY", "B-QUANTITY", "I-QUANTITY", "B-ORDINAL", "I-ORDINAL", "B-CARDINAL", "I-CARDINAL", "B-EVENT", "I-EVENT", "B-WORK_OF_ART", "I-WORK_OF_ART", "B-LAW", "I-LAW", "B-LANGUAGE", "I-LANGUAGE"]
+    onto_tags = [
+        "O",
+        "B-PERSON",
+        "I-PERSON",
+        "B-NORP",
+        "I-NORP",
+        "B-FAC",
+        "I-FAC",
+        "B-ORG",
+        "I-ORG",
+        "B-GPE",
+        "I-GPE",
+        "B-LOC",
+        "I-LOC",
+        "B-PRODUCT",
+        "I-PRODUCT",
+        "B-DATE",
+        "I-DATE",
+        "B-TIME",
+        "I-TIME",
+        "B-PERCENT",
+        "I-PERCENT",
+        "B-MONEY",
+        "I-MONEY",
+        "B-QUANTITY",
+        "I-QUANTITY",
+        "B-ORDINAL",
+        "I-ORDINAL",
+        "B-CARDINAL",
+        "I-CARDINAL",
+        "B-EVENT",
+        "I-EVENT",
+        "B-WORK_OF_ART",
+        "I-WORK_OF_ART",
+        "B-LAW",
+        "I-LAW",
+        "B-LANGUAGE",
+        "I-LANGUAGE",
+    ]
     onto_tag_map = {}
     for i in range(len(onto_tags)):
         onto_tag_map[i] = onto_tags[i]
     onto_fulltagmap = onto_tag_map
     data = []
     for k, dset_example in enumerate(dset_holder):
-        for j,  dset in enumerate(dset_example['sentences']):
-            text = " ".join(dset['words'])
+        for j, dset in enumerate(dset_example["sentences"]):
+            text = " ".join(dset["words"])
             types = dset["named_entities"]
             sentence = text.split(" ")
             assert len(sentence) == len(types)
@@ -319,8 +383,8 @@ def load_few_nerd(few_nerd_path="data/FewNERD", category="intra", split="test"):
     return read_ob2(file_path)
 
 
-def load_cross_ner(cross_ner_path='data/CrossNER', category="ai", split="train"):
-    assert category in ['politics', 'literature', 'ai', 'science', 'conll2003', 'music']
+def load_cross_ner(cross_ner_path="data/CrossNER", category="ai", split="train"):
+    assert category in ["politics", "literature", "ai", "science", "conll2003", "music"]
     file_path = os.path.join(cross_ner_path, "ner_data", category, f"{split}.txt")
     return read_ob2(file_path)
 
@@ -352,7 +416,7 @@ def miniproc(x):
 def sample_all_types(dset, min_k=5):
     total_types = []
     for i in dset.index:
-        types = list(set([miniproc(x) for x in dset.loc[i, 'exact_types']]))
+        types = list(set([miniproc(x) for x in dset.loc[i, "exact_types"]]))
         total_types.extend(types)
     total_types = list(set(total_types))
     done = False
@@ -363,14 +427,14 @@ def sample_all_types(dset, min_k=5):
         selected_types = []
         minidset = dset.sample(k).reset_index(drop=True)
         for i in minidset.index:
-            types = list(set([miniproc(x) for x in minidset.loc[i, 'exact_types']]))
+            types = list(set([miniproc(x) for x in minidset.loc[i, "exact_types"]]))
             selected_types.extend(types)
         selected_types = list(set(selected_types))
         if len(selected_types) == len(total_types):
             done = True
             break
         i += 1
-        if (i+1) % 10 == 0:
+        if (i + 1) % 10 == 0:
             k += 1
     return minidset
 
@@ -383,7 +447,7 @@ def save(func, name):
             filename = "dev"
         write_ob2(dset, dataset_folder=name, filename=filename)
         minidset = sample_all_types(dset, min_k=5)
-        write_ob2(minidset, name, "5shot"+filename)
+        write_ob2(minidset, name, "5shot" + filename)
 
 
 if __name__ == "__main__":

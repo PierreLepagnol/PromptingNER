@@ -1,0 +1,9 @@
+[
+    {"name":"ATIS", "lang":"(English)","required":true},
+    {"name":"MEDIA", "lang":"(French)","required":true},
+    {"name":"SNIPS", "lang":"(English)","required":true},
+    {"name":"MultiATIS+,+", "lang":"(French)","required":true},
+    {"name":"MMNLU/ MASSIVE", "lang":"(English + French)","required":false},
+    {"name":"MultiATIS++","lang":"(multi-lingue) ?","required":false},
+    {"name":"MMNLU / MASSIVE","lang":"(Multi-lingue) ?","required":false}
+]

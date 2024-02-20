@@ -1,23 +1,25 @@
-
-import string
 import re
-from numpy.random import choice
+import string
+
 from nltk.corpus import stopwords
+from numpy.random import choice
 
 
 def find_nth_str(haystack, needle, n):
     start = haystack.find(needle)
     while start >= 0 and n > 1:
-        start = haystack.find(needle, start+len(needle))
+        start = haystack.find(needle, start + len(needle))
         n -= 1
     return start
+
 
 def find_nth_list(haystack, needle, n):
     start = haystack.index(needle)
     while start >= 0 and n > 1:
-        start = haystack.index(needle, start+1)
+        start = haystack.index(needle, start + 1)
         n -= 1
     return start
+
 
 def find_nth_list_subset(haystack, needle, n):
     if n < 0:
@@ -27,13 +29,13 @@ def find_nth_list_subset(haystack, needle, n):
     found = []
     needle_size = len(needle.split(" "))
     for i in range(len(haystack)):
-        sliced = " ".join(haystack[i:i+needle_size])
+        sliced = " ".join(haystack[i : i + needle_size])
         if needle == sliced:
             found.append(i)
     if len(found) > n:
         return -1
     else:
-        return found[n-1]
+        return found[n - 1]
 
 
 def separate_single_multi(l):
@@ -51,9 +53,10 @@ def verbose(func):
     def inner(*args, **kwargs):
         if kwargs.get("verbose", False):
             i = kwargs.get("indent_level", 0)
-            indent = "\t"*i
+            indent = "\t" * i
             print(f"{indent}{args[0].strip()}")
         return func(*args, **kwargs)
+
     return inner
 
 
@@ -70,7 +73,7 @@ class AnswerMapping:
                     pass
                 elif re.match(r"\d+[.)]+ *", c):
                     start = 0
-                    while c[start].isnumeric() or c[start] == '.':
+                    while c[start].isnumeric() or c[start] == ".":
                         start += 1
                     final.append(c[start:].strip())
                 else:
@@ -106,11 +109,18 @@ class AnswerMapping:
 
     @staticmethod
     @verbose
-    def exemplar_format_list(output, verbose=False, indent_level=0, separator='|', true_only=True, identify_types=False):
+    def exemplar_format_list(
+        output, verbose=False, indent_level=0, separator="|", true_only=True, identify_types=False
+    ):
+        # Is sperated by newlines
         if "\n" in output:
-            listed = AnswerMapping.get_numbered_list_items(output, verbose=False, indent_level=indent_level+1)
+            listed = AnswerMapping.get_numbered_list_items(
+                output, verbose=False, indent_level=indent_level + 1
+            )
+
         else:
             listed = []
+            # Not separated by newlines
             if "1" in output:
                 split = re.split(r"\d+[.)]", output)
                 for item in split:
@@ -118,8 +128,10 @@ class AnswerMapping:
                         pass
                     else:
                         listed.append(item.strip())
+
         final = []
         typestring = []
+
         for option in listed:
             if separator in option:
                 split = option.split(separator)
@@ -147,25 +159,9 @@ class AnswerMapping:
                     pass
             else:
                 final.append(option.strip().lower())
-        if not identify_types:
-            return final
-        else:
+
+        # Return the types if requested
+        if identify_types:
             return final, typestring
-
-
-class Parameters:
-    devices = ["cuda:0"]
-
-    @staticmethod
-    def get_device_ints(limit=3):
-        assert "cpu" not in Parameters.devices[:limit]
-        final = []
-        for item in Parameters.devices[:limit]:
-            if isinstance(item, int):
-                final.append(item)
-            elif item.isnumeric():
-                final.append(int(item))
-            else:
-                f, l = item.split(":")
-                final.append(int(l))
-        return final
+        else:
+            return final

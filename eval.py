@@ -1,38 +1,42 @@
 import os
-
-from data import *
-import pandas as pd
-import numpy as np
+import random
 import string
-from utils import AnswerMapping
-from algorithms import BaseAlgorithm, Algorithm
+import warnings
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from seqeval.metrics import f1_score as seq_f1
+from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix
+
+from algorithms import Algorithm, BaseAlgorithm
+from data import *
 from data import scroll
 from models import OpenAIGPT
-import warnings
-import random
-from seqeval.metrics import f1_score as seq_f1
-import matplotlib.pyplot as plt
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+from myutils import AnswerMapping
+
 results_dir = "results"
 
 
-
 def is_eq(e1, e2):
-    return e1.lower().strip().strip(string.punctuation).strip() == e2.lower().strip().strip(string.punctuation).strip()
+    return (
+        e1.lower().strip().strip(string.punctuation).strip()
+        == e2.lower().strip().strip(string.punctuation).strip()
+    )
 
 
 def basic_process_results(filename):
-    df = pd.read_csv(results_dir+"/"+filename)
+    df = pd.read_csv(results_dir + "/" + filename)
     for col in ["entities", "truth", "pred"]:
         df[col] = df[col].apply(eval)
-    df['pred_text'] = None
-    df['truth_text'] = None
-    df['correct'] = df['pred'] == df['truth']
+    df["pred_text"] = None
+    df["truth_text"] = None
+    df["correct"] = df["pred"] == df["truth"]
     for i in df.index:
         row = df.loc[i]
-        text = row['text'].split(" ")
-        preds = row['pred']
-        truths = row['truth']
+        text = row["text"].split(" ")
+        preds = row["pred"]
+        truths = row["truth"]
         pred_text = ""
         truth_text = ""
         for j, word in enumerate(text):
@@ -46,7 +50,7 @@ def basic_process_results(filename):
                 truth_text = truth_text + " " + word + " | " + truths[j]
         df.loc[i, "pred_text"] = pred_text
         df.loc[i, "truth_text"] = truth_text
-    df.to_csv(results_dir + "/"+filename, index=False)
+    df.to_csv(results_dir + "/" + filename, index=False)
     return
 
 
@@ -58,7 +62,7 @@ def process_all_results():
 def workbench():
     d = {}
     for file in os.listdir(results_dir):
-        d[file] = pd.read_csv(results_dir+"/"+file)
+        d[file] = pd.read_csv(results_dir + "/" + file)
         for col in ["entities", "truth", "pred"]:
             d[file][col] = d[file][col].apply(eval)
     formatter = lambda x: AnswerMapping.exemplar_format_list(x, identify_types=True, verbose=False)
@@ -68,12 +72,13 @@ def workbench():
         alg.set_para(para)
         answers, typestrings = formatter(meta)
         return alg.parse_span(answers, typestrings, meta)
+
     return d, formatter, do_span
 
 
 def analytics(d):
-    d["text_len"] = d['text'].apply(lambda x: len(x.split(" ")))
-    d["n_entities"] = d['entities'].apply(len)
+    d["text_len"] = d["text"].apply(lambda x: len(x.split(" ")))
+    d["n_entities"] = d["entities"].apply(len)
     all_types = []
     for i in d.index:
         types = list(set(d.loc[i, "truth"]))
@@ -98,15 +103,24 @@ def analytics(d):
 
 
 def_pre = "Named entities are phrases that represent the name of a "
-defn_map = {'conll': "person, organization or location",
-            'ai': "field, task, product, algorithm, researcher, metrics, university, country, person, organization or location",
-            'lit': "book, writer, award, poem, event, magazine, person, location, organization, country, miscellaneous",
-            'music': "music genre, song, band, album, musical artist, musical instrument, award, event, country, location, organization or person",
-            'pol': "politician, person, organization, political party, event, election, country or location",
-            'science': "scientist, person, university, organization, country, location, discipline, enzyme, protein, chemical compound, chemical element, event, astronomical object, academic journal, award or theory"}
+defn_map = {
+    "conll": "person, organization or location",
+    "ai": "field, task, product, algorithm, researcher, metrics, university, country, person, organization or location",
+    "lit": "book, writer, award, poem, event, magazine, person, location, organization, country, miscellaneous",
+    "music": "music genre, song, band, album, musical artist, musical instrument, award, event, country, location, organization or person",
+    "pol": "politician, person, organization, political party, event, election, country or location",
+    "science": "scientist, person, university, organization, country, location, discipline, enzyme, protein, chemical compound, chemical element, event, astronomical object, academic journal, award or theory",
+}
 
 
-def get_survey_format(dfs, save_name="survey_data", examples_per_dataset=20, n_attentions=2, n_workers=10, n_examples_per_worker=30):
+def get_survey_format(
+    dfs,
+    save_name="survey_data",
+    examples_per_dataset=20,
+    n_attentions=2,
+    n_workers=10,
+    n_examples_per_worker=30,
+):
     columns = ["defn", "sentence", "list1", "list2", "gptlist", "f1", "dataset"]
     data = []
     for dataset in dfs:
@@ -144,14 +158,16 @@ def get_survey_format(dfs, save_name="survey_data", examples_per_dataset=20, n_a
             data.append(mdata)
     df = pd.DataFrame(columns=columns, data=data)
     attentions = df[df.f1 == 1].reset_index(drop=True)
-    attentions['id'] = -1
+    attentions["id"] = -1
     sample_dfs = []
-    for dataset in df['dataset'].unique():
-        samples = df[(df.dataset == dataset) & (df.f1 != 1)].sample(examples_per_dataset).reset_index(drop=True)
+    for dataset in df["dataset"].unique():
+        samples = (
+            df[(df.dataset == dataset) & (df.f1 != 1)].sample(examples_per_dataset).reset_index(drop=True)
+        )
         sample_dfs.append(samples)
     df = pd.concat(sample_dfs, ignore_index=True)
     df = df.sample(len(df)).reset_index(drop=True)
-    df['id'] = df.index
+    df["id"] = df.index
     save_total = f"results/survey/{save_name}"
     df.to_csv(f"{save_total}.csv", index=False)
     n_examples = len(df)
@@ -170,7 +186,9 @@ def get_survey_format(dfs, save_name="survey_data", examples_per_dataset=20, n_a
         split_dfs[i] = pd.concat([split_df, attentions.sample(n_attentions)], ignore_index=True)
 
         print(f"worker: {i} assigned {len(split_dfs[i])} examples")
-        split_dfs[i].sample(len(split_dfs[i])).reset_index(drop=True).to_csv(f"{save_total}_{i}.csv", index=False)
+        split_dfs[i].sample(len(split_dfs[i])).reset_index(drop=True).to_csv(
+            f"{save_total}_{i}.csv", index=False
+        )
     return df, split_dfs
 
 
@@ -182,14 +200,39 @@ def gen_survey_format():
 
 def process_batch(turk_name="batch", worker=0):
     batch = pd.read_csv(f"results/survey/{turk_name}_{worker}.csv")
-    batch.drop(['HITId', 'HITTypeId', 'Title', 'Description', 'Keywords', 'Reward',
-       'CreationTime', 'MaxAssignments', 'RequesterAnnotation',
-       'AssignmentDurationInSeconds', 'AutoApprovalDelayInSeconds',
-       'Expiration', 'NumberOfSimilarHITs', 'LifetimeInSeconds',
-       'AssignmentId', 'WorkerId', 'AssignmentStatus', 'AcceptTime',
-       'SubmitTime', 'AutoApprovalTime', 'ApprovalTime', 'RejectionTime',
-       'RequesterFeedback', 'WorkTimeInSeconds', 'LifetimeApprovalRate',
-       'Last30DaysApprovalRate', 'Last7DaysApprovalRate'], axis=1, inplace=True)
+    batch.drop(
+        [
+            "HITId",
+            "HITTypeId",
+            "Title",
+            "Description",
+            "Keywords",
+            "Reward",
+            "CreationTime",
+            "MaxAssignments",
+            "RequesterAnnotation",
+            "AssignmentDurationInSeconds",
+            "AutoApprovalDelayInSeconds",
+            "Expiration",
+            "NumberOfSimilarHITs",
+            "LifetimeInSeconds",
+            "AssignmentId",
+            "WorkerId",
+            "AssignmentStatus",
+            "AcceptTime",
+            "SubmitTime",
+            "AutoApprovalTime",
+            "ApprovalTime",
+            "RejectionTime",
+            "RequesterFeedback",
+            "WorkTimeInSeconds",
+            "LifetimeApprovalRate",
+            "Last30DaysApprovalRate",
+            "Last7DaysApprovalRate",
+        ],
+        axis=1,
+        inplace=True,
+    )
     inputs = []
     answers = []
     for column in batch:
@@ -207,13 +250,15 @@ def process_batch(turk_name="batch", worker=0):
 
 
 def connect_turk_output(turk_name="survey_result", save_name="survey_data", n_workers=10):
-    all_batches = pd.concat([process_batch(turk_name, worker) for worker in range(n_workers)], ignore_index=True)
+    all_batches = pd.concat(
+        [process_batch(turk_name, worker) for worker in range(n_workers)], ignore_index=True
+    )
     df = pd.read_csv(f"results/survey/{save_name}.csv")
     return df, all_batches
 
 
 def process_batch_row(row):
-    gptno = row['gptlist']
+    gptno = row["gptlist"]
     trueno = 1 if gptno == 2 else 2
     gptcorrect = int(row[f"l{gptno}correct"])
     truecorrect = int(row[f"l{trueno}correct"])
@@ -254,13 +299,29 @@ def summarize(df, i, column, array):
 def process_turk():
     df, all_batches = connect_turk_output()
     for i in df.index:
-        subset = all_batches[all_batches['id'] == i]
+        subset = all_batches[all_batches["id"] == i]
         df.loc[i, "num"] = len(subset)
-        gptcorrects, truecorrects, gptbetters, gptworses, gptmissings, gptextras, truemissings, trueextras = [], [], \
-            [], [], [], [], [], []
+        gptcorrects, truecorrects, gptbetters, gptworses, gptmissings, gptextras, truemissings, trueextras = (
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+        )
         for j in subset.index:
-            gptcorrect, truecorrect, gptbetter, gptworse, gptmissing, gptextra, truemissing, trueextra = \
-                process_batch_row(subset.loc[j])
+            (
+                gptcorrect,
+                truecorrect,
+                gptbetter,
+                gptworse,
+                gptmissing,
+                gptextra,
+                truemissing,
+                trueextra,
+            ) = process_batch_row(subset.loc[j])
             gptcorrects.append(gptcorrect)
             truecorrects.append(truecorrect)
             gptbetters.append(gptbetter)
@@ -284,12 +345,16 @@ def process_turk():
 def analyze_turk():
     df = process_turk()
     slices = [(df, "All")]
-    for dataset in df['dataset'].unique():
-        slices.append((df[df['dataset'] == dataset], dataset))
+    for dataset in df["dataset"].unique():
+        slices.append((df[df["dataset"] == dataset], dataset))
     for slice, name in slices:
         print(f"For {name}")
-        print(f"\tGPTCorrect: {slice['gptcorrect'].mean()}, Agreement: {slice['gptcorrect_agreement'].mean()}")
-        print(f"\tTrueCorrect: {slice['truecorrect'].mean()}, Agreement: {slice['truecorrect_agreement'].mean()}")
+        print(
+            f"\tGPTCorrect: {slice['gptcorrect'].mean()}, Agreement: {slice['gptcorrect_agreement'].mean()}"
+        )
+        print(
+            f"\tTrueCorrect: {slice['truecorrect'].mean()}, Agreement: {slice['truecorrect_agreement'].mean()}"
+        )
         print(f"\tGPTBetter: {slice['gptbetter'].mean()}, Agreement: {slice['gptbetter_agreement'].mean()}")
         print(f"\tGPTWorse: {slice['gptworse'].mean()}, Agreement: {slice['gptworse_agreement'].mean()}")
         print(f"\tAvg GPT Missing and Extra: {slice['gptmissing'].mean()}, {slice['gptextra'].mean()}")
@@ -298,5 +363,3 @@ def analyze_turk():
 
 if __name__ == "__main__":
     process_all_results()
-
-
