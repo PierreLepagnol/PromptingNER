@@ -5,7 +5,8 @@ from nltk.corpus import stopwords
 from transformers import PreTrainedModel, PreTrainedTokenizer
 
 import myutils
-from models import OpenAIGPT
+
+# from models import OpenAIGPT
 from myutils import AnswerMapping
 
 
@@ -183,13 +184,13 @@ class Algorithm(BaseAlgorithm):
         :param paragraph:
         :return:
         """
-        if isinstance(self.model, OpenAIGPT):
-            self.perform_openai(verbose=verbose, deduplicate=deduplicate)
+        # if isinstance(self.model, OpenAIGPT):
+        #     self.perform_openai(verbose=verbose, deduplicate=deduplicate)
+        # else:
+        if self.identify_types:
+            answers, typestrings, metadata = self.perform_single_query(verbose=verbose)
         else:
-            if self.identify_types:
-                answers, typestrings, metadata = self.perform_single_query(verbose=verbose)
-            else:
-                answers, metadata = self.perform_single_query(verbose=verbose)
+            answers, metadata = self.perform_single_query(verbose=verbose)
 
         if not self.identify_types:
             answers = list(set(answers))

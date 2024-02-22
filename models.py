@@ -1,57 +1,53 @@
 import os
 
-import openai
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
 import myutils
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# class OpenAIGPT:
+#     # model = "text-davinci-003"
+#     # model = "gpt-4"
+#     model = "gpt-3.5-turbo"
+#     # model = "davinci"
+#     seconds_per_query = (60 / 20) + 0.01
 
+#     @staticmethod
+#     def request_model(prompt):
+#         return openai.Completion.create(model=OpenAIGPT.model, prompt=prompt, max_tokens=250)
 
-class OpenAIGPT:
-    # model = "text-davinci-003"
-    # model = "gpt-4"
-    model = "gpt-3.5-turbo"
-    # model = "davinci"
-    seconds_per_query = (60 / 20) + 0.01
+#     @staticmethod
+#     def request_chat_model(msgs):
+#         messages = []
+#         for message in msgs:
+#             content, role = message
+#             messages.append({"role": role, "content": content})
+#         return openai.ChatCompletion.create(model=OpenAIGPT.model, messages=messages)
 
-    @staticmethod
-    def request_model(prompt):
-        return openai.Completion.create(model=OpenAIGPT.model, prompt=prompt, max_tokens=250)
+#     @staticmethod
+#     def decode_response(response):
+#         if OpenAIGPT.is_chat():
+#             return response["choices"][0]["message"]["content"]
+#         else:
+#             return response["choices"][0]["text"]
 
-    @staticmethod
-    def request_chat_model(msgs):
-        messages = []
-        for message in msgs:
-            content, role = message
-            messages.append({"role": role, "content": content})
-        return openai.ChatCompletion.create(model=OpenAIGPT.model, messages=messages)
+#     @staticmethod
+#     def query(prompt):
+#         return OpenAIGPT.decode_response(OpenAIGPT.request_model(prompt))
 
-    @staticmethod
-    def decode_response(response):
-        if OpenAIGPT.is_chat():
-            return response["choices"][0]["message"]["content"]
-        else:
-            return response["choices"][0]["text"]
+#     @staticmethod
+#     def chat_query(msgs):
+#         return OpenAIGPT.decode_response(OpenAIGPT.request_chat_model(msgs))
 
-    @staticmethod
-    def query(prompt):
-        return OpenAIGPT.decode_response(OpenAIGPT.request_model(prompt))
+#     @staticmethod
+#     def is_chat():
+#         return OpenAIGPT.model in ["gpt-4", "gpt-3.5-turbo"]
 
-    @staticmethod
-    def chat_query(msgs):
-        return OpenAIGPT.decode_response(OpenAIGPT.request_chat_model(msgs))
-
-    @staticmethod
-    def is_chat():
-        return OpenAIGPT.model in ["gpt-4", "gpt-3.5-turbo"]
-
-    @staticmethod
-    def __call__(inputs):
-        if OpenAIGPT.is_chat():
-            return OpenAIGPT.chat_query(inputs)
-        else:
-            return OpenAIGPT.query(inputs)
+#     @staticmethod
+#     def __call__(inputs):
+#         if OpenAIGPT.is_chat():
+#             return OpenAIGPT.chat_query(inputs)
+#         else:
+#             return OpenAIGPT.query(inputs)
 
 
 class HugginFaceModel:
