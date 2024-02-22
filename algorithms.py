@@ -81,8 +81,9 @@ class BaseAlgorithm:
 class Algorithm(BaseAlgorithm):
     def query(self, prompt):
         inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
-        outputs = self.model.generate(**inputs, max_new_tokens=200)
-        return self.tokenizer.batch_decode(outputs, skip_special_tokens=True)[0]
+        input_length = inputs.input_ids.shape[1]
+        generated_ids = self.model.generate(**inputs, max_new_tokens=200)
+        return self.tokenizer.batch_decode(generated_ids[:, input_length:], skip_special_tokens=True)[0]
 
     def perform_span(self, true_tokens=None, verbose=False):
         assert self.identify_types and not self.split_phrases
