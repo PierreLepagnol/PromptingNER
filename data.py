@@ -234,7 +234,11 @@ def save(func, name):
         write_ob2(minidset, name, "5shot" + filename)
 
 
+def load_media(split="test"):
+    return "media"
+
+
 if __name__ == "__main__":
-    load-media(
+    load_media(split="test")
     # save(load_fabner, "fabner")
     # save(load_tweetner, "tweetner")
