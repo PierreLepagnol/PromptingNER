@@ -1,6 +1,6 @@
 import os
-import re
-import string
+from dataclasses import dataclass
+from pathlib import Path
 
 import pandas as pd
 from datasets import load_dataset
@@ -234,11 +234,105 @@ def save(func, name):
         write_ob2(minidset, name, "5shot" + filename)
 
 
-def load_media(split="test"):
-    return "media"
+@dataclass
+class Paths:
+    version: str
+    split: str
+
+    def __post_init__(self):
+        directory = Path(f"/home/lepagnol/Documents/These/NER/MEDIA/media_{self.version}") / self.split
+
+        self.datasets_text = directory / "seq.in"
+        self.dataset_slot_filling = directory / "seq.out"
+        self.dataset_intent = directory / "label"
+
+
+def aggregate_to_dict(listoftypes) -> dict:
+    if len(listoftypes) == 0:
+        return {}
+    else:
+        # data_list = [
+        #     ("je", "B-command-tache"),
+        #     ("voudrais", "I-command-tache"),
+        #     ("euh", "I-command-tache"),
+        #     ("réserver", "I-command-tache"),
+        #     ("pour", "B-localisation-ville"),
+        #     ("la", "I-localisation-ville"),
+        #     ("ville", "I-localisation-ville"),
+        #     ("de", "I-localisation-ville"),
+        #     ("Nice", "I-localisation-ville"),
+        #     ("du", "B-temps-date"),
+        #     ("premier", "I-temps-date"),
+        #     ("au", "B-temps-date"),
+        #     ("trois", "I-temps-date"),
+        #     ("novembre", "I-temps-date"),
+        # ]
+
+        return aggregate_phrases_corrected(listoftypes)
+
+
+def aggregate_phrases_corrected(list_of_tuples):
+    aggregated_dict = {}
+    current_phrase = ""
+    current_tag = ""
+    for word, tag in list_of_tuples:
+        if tag.startswith("B-"):  # Beginning of a new phrase
+            if current_phrase:  # Save the previous phrase if it exists
+                aggregated_dict[current_phrase] = current_tag  # Assign tag to phrase
+            current_phrase = word  # Start a new phrase
+            current_tag = tag[2:]  # Update the current tag without the B-/I- prefix
+        else:  # Intermediate word of the current phrase
+            current_phrase += " " + word
+    # Add the last phrase to the dictionary
+    if current_phrase:
+        aggregated_dict[current_phrase] = current_tag
+    return aggregated_dict
+
+
+def load_media(split="test", version="original"):
+    assert version in ["original", "speechbrain_full", "speechbrain_relax"]
+
+    paths = Paths(version=version, split=split)
+
+    with open(paths.datasets_text, "r") as file:
+        texts = file.readlines()
+
+    with open(paths.dataset_slot_filling, "r") as file:
+        dataset_slot_filling = file.readlines()
+
+    with open(paths.dataset_intent, "r") as file:
+        dataset_intent = file.readlines()
+
+    print("len(texts):", len(texts))
+    print("len(dataset_slot_filling):", len(dataset_slot_filling))
+    print("len(dataset_intent):", len(dataset_intent))
+
+    data = []
+    counter = 0
+    for text, slot_filling, intent in zip(texts, dataset_slot_filling, dataset_intent):
+        # print(counter)
+        if counter == 3:
+            print(text, slot_filling, intent)
+        text_list = text.replace("\n", "").split()
+        slot_filling = slot_filling.replace("\n", "").split()
+        intent = intent.replace("\n", "").split()
+        true_types = []
+        counter += 1
+
+        for i, word in enumerate(text_list):
+            if slot_filling[i] != "O":
+                true_types.append((word, slot_filling[i]))
+        true_types = aggregate_to_dict(true_types)
+
+        data.append([text, true_types, slot_filling, intent])
+
+    data[3]
+    df = pd.DataFrame(columns=["text", "entities", "types", "intent"], data=data)  # "exact_types"
+    return df
 
 
 if __name__ == "__main__":
+    # load_conll2003("test")
     load_media(split="test")
     # save(load_fabner, "fabner")
     # save(load_tweetner, "tweetner")
