@@ -1,6 +1,4 @@
 import os
-import re
-import string
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -199,9 +197,6 @@ def miniproc(x):
         return x
 
 
-import pandas as pd
-
-
 def sample_all_types(dset: pd.DataFrame, min_k=5):
     """
     Samples a subset of rows from the given DataFrame ensuring that all unique types
@@ -272,12 +267,13 @@ def save(func, name):
 
 
 @dataclass
-class Paths:
+class MediaPaths:
     version: str
     split: str
+    directory = Path("/home/lepagnol/Documents/These/NER/MEDIA")
 
     def __post_init__(self):
-        directory = Path(f"/home/lepagnol/Documents/These/NER/MEDIA/media_{self.version}") / self.split
+        directory = self.directory / f"media_{self.version}" / self.split
 
         self.datasets_text = directory / "seq.in"
         self.dataset_slot_filling = directory / "seq.out"
@@ -312,7 +308,7 @@ def aggregate_phrases_corrected(list_of_tuples):
 def load_media(split="test", version="original"):
     assert version in ["original", "speechbrain_full", "speechbrain_relax"]
 
-    paths = Paths(version=version, split=split)
+    paths = MediaPaths(version=version, split=split)
 
     with open(paths.datasets_text, "r") as file:
         texts = file.readlines()
@@ -344,15 +340,89 @@ def load_media(split="test", version="original"):
                 true_types.append((word, slot_filling[i]))
         true_types = aggregate_to_dict(true_types)
 
-        data.append([text, true_types, slot_filling, intent])
+        data.append({"text": text, "entities": true_types, "exact_types": slot_filling, "intent": intent})
 
-    data[3]
-    df = pd.DataFrame(columns=["text", "entities", "exact_types", "intent"], data=data)  # "exact_types"
+    df = pd.DataFrame(data=data)  # "exact_types"
+    return df
+
+
+@dataclass
+class SnipsPaths:
+    split: str
+    directory = Path("/home/lepagnol/Documents/These/NER/SNIPS")
+
+    def __post_init__(self):
+        directory = self.directory
+
+        self.datasets_text = directory / f"snips.{self.split}.txt"
+        self.dataset_slot_filling = directory / f"snips.{self.split}.crf"
+
+
+def load_snips(split="test"):
+    paths = SnipsPaths(split=split)
+
+    # Load crf datasets
+    with open(paths.datasets_text, "r") as file:
+        texts = file.readlines()
+
+    with open(paths.dataset_slot_filling, "r") as file:
+        dataset_slot_filling = file.readlines()
+
+    print("len(texts):", len(texts))
+    print("len(dataset_slot_filling):", len(dataset_slot_filling))
+    data = []
+    entities = []
+    exact_types = []
+    for line in dataset_slot_filling:
+        if line != "\n":
+            items = line.replace("\n", "").split("\t")
+            entities.append(items[0])
+            exact_types.append(items[1])
+        else:
+            assert len(entities) == len(exact_types)
+            data.append({"text": " ".join(entities), "entities": entities, "exact_types": exact_types})
+            entities = []
+            exact_types = []
+
+    df = pd.DataFrame(data=data)
+    assert len(df) == len(texts)
+    return df
+
+
+@dataclass
+class AtisPaths:
+    split: str
+    directory = Path("/home/lepagnol/Documents/These/NER/Atis")
+
+    def __post_init__(self):
+        directory = self.directory
+
+        self.datasets_text_slots = directory / f"atis.{self.split}.iob"
+
+
+def load_atis(split="test"):
+    paths = AtisPaths(split=split)
+
+    # Load crf datasets
+    with open(paths.datasets_text_slots, "r") as file:
+        texts_n_slots = file.readlines()
+
+    print("len(texts_n_slots):", len(texts_n_slots))
+    data = []
+    entities = []
+    exact_types = []
+    for line in texts_n_slots:
+        items = line.replace("\n", "").split("\t")
+        entities = items[0].split()[1:-1]
+        exact_types = items[1].split()[1:-1]
+        assert len(entities) == len(exact_types)
+        data.append({"text": " ".join(entities), "entities": entities, "exact_types": exact_types})
+
+    df = pd.DataFrame(data=data)
     return df
 
 
 if __name__ == "__main__":
     # load_conll2003("test")
-    load_media(split="test")
-    # save(load_fabner, "fabner")
-    # save(load_tweetner, "tweetner")
+    # load_media(split="test")
+    load_atis(split="test")
