@@ -286,12 +286,14 @@ class Algorithm(BaseAlgorithm):
             task_string = self.entity_token_task.replace("[sent]", self.para)
             task_string = task_string.replace("[token]", token)
             task_string = task_string.replace("[type]", ner_label)
+
         if self.model_fn.is_chat():
             msgs = [(self.defn, "system"), (task_string, "user")]
             output = self.model_fn(msgs)
         else:
             task_string = self.defn + "\n" + task_string
             output = self.model_fn(task_string)
+
         return output
 
     def generate_annotations(self, tokens, ner_labels, max_falses=3):
@@ -312,11 +314,14 @@ class Algorithm(BaseAlgorithm):
                     false_indices.append(i)
                     annot = self.get_annotation(token, "O")
                     annots.append(annot)
+
         if len(false_indices) > max_falses:
             false_indices = np.random.choice(false_indices, max_falses, replace=False)
             false_indices.sort()
+
         annot_str = "Answer: \n"
         no = 1
+
         for i, token in enumerate(tokens):
             if annots[i] is None:
                 pass
@@ -333,6 +338,7 @@ class Algorithm(BaseAlgorithm):
                     if i in false_indices:
                         annot_str = annot_str + appendage
                         no += 1
+
         return annot_str
 
 

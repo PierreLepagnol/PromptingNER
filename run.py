@@ -4,8 +4,8 @@ from seqeval.metrics import f1_score
 from tqdm import tqdm
 from transformers import PreTrainedModel
 
-from algorithms import Algorithm, AtisConfig, ConllConfig
-from data import *
+from algorithms import Algorithm, AtisConfig, ConllConfig, MediaConfig
+from data import load_conll2003, load_media, sample_all_types
 from utils.model import load_model_and_tokenizer
 
 
@@ -57,7 +57,55 @@ def eval_dataset(val: pd.DataFrame, algorithm: Algorithm, print_every=10):
     return f1_micro, f1_macro, df
 
 
-def complete_eval(dataset: pd.DataFrame, algorithm: Algorithm, n_runs=2, limit=None):
+def eval_slot_filling(val: pd.DataFrame, algorithm: Algorithm, print_every=10):
+    columns = ["text", "entities", "truth", "pred", "meta", "f1"]
+    data = []
+    preds, truths = [], []
+
+    for i, info in tqdm(enumerate(val.iterrows()), total=len(val)):
+        index, q = info
+        para = q["text"]
+        entities = q["entities"]
+        subdata = [para, entities, q["types"]]
+        algorithm.set_para(para)
+
+        types = None
+        flag = False
+
+        while not flag:
+            true_tokens = None
+            if "true_tokens" in val.columns:
+                true_tokens = q["true_tokens"]
+            span_pred, meta = algorithm.perform_span(true_tokens=true_tokens, verbose=False)
+            p = [span_pred]
+            t = [q["exact_types"]]
+            preds.append(span_pred)
+            truths.append(q["exact_types"])
+            mini_f1 = f1_score(t, p)
+            subdata.extend([span_pred, meta, mini_f1])
+            data.append(subdata)
+            f1_micro = f1_score(truths, preds, average="micro")
+            flag = True
+            # try:
+            #
+        #
+        # except IndexError:
+        # flag = True
+
+        if print_every is not None:
+            if i % print_every == 0:
+                f1_micro = f1_score(truths, preds, average="micro")
+                f1_macro = f1_score(truths, preds, average="macro")
+                print(f"Iteration {i}: micro f1: {f1_micro}, macro f1: {f1_macro}")
+
+    f1_micro = f1_score(truths, preds, average="micro")
+    f1_macro = f1_score(truths, preds, average="macro")
+    print(f"Finally: micro f1: {f1_micro}, macro f1: {f1_macro}")
+    df = pd.DataFrame(data=data, columns=columns)
+    return f1_micro, f1_macro, df
+
+
+def complete_eval(dataset: pd.DataFrame, algorithm: Algorithm, n_runs=2, limit=None, task="intent"):
     """Compute the evaluation of a dataset using a model and algorithm
 
     Args:
@@ -79,8 +127,10 @@ def complete_eval(dataset: pd.DataFrame, algorithm: Algorithm, n_runs=2, limit=N
             small_dataset = dataset.sample(limit)
         else:
             small_dataset = dataset
-        f1_micro, f1_macro, df = eval_dataset(small_dataset, algorithm)
-
+        if task == "intent":
+            f1_micro, f1_macro, df = eval_dataset(small_dataset, algorithm)
+        else:
+            f1_micro, f1_macro, df = eval_slot_filling(small_dataset, algorithm)
         micros.append(f1_micro)
         macros.append(f1_macro)
     micros = np.array(micros)
@@ -132,36 +182,60 @@ def eval_atis(
     return False
 
 
-def run(dataset="conll", subdataset=None, exemplar=True, coT=True, defn=True, tf=True, name_meta=""):
-    print(f"Running for: {dataset}, {subdataset}")
-    res_path = "results"
-    other_limit = 3
-    other_nruns = 2
+def eval_media(
+    algorithm: Algorithm,
+    n_runs=2,
+    limit=None,
+    exemplar=True,
+    coT=True,
+    defn=True,
+    tf=True,
+    generate_labels_from_lm=False,
+    **kwargs,
+):
+    config = MediaConfig()
+    algorithm.split_phrases = False
 
-    if dataset == "conll":
-        eval_fn = eval_conll
-    elif dataset == "atis":
-        eval_fn = eval_atis
-    else:
+    if generate_labels_from_lm:
+        dataset_train = load_media(split="train", version=kwargs["version"])
+        subsample = sample_all_types(dataset_train, 3)
+        texts = subsample["text"].tolist()
+        tokens = subsample["text"].apply(lambda x: x.split(" ")).tolist()
+        labels = subsample["exact_types"].tolist()
+        config.autogenerate_annotations(algorithm, texts, tokens, labels)
+
+    config.set_config(algorithm, exemplar=exemplar, coT=coT, defn=defn, tf=tf)
+    dataset = load_media(split="test", version=kwargs["version"])
+    return complete_eval(dataset, algorithm, n_runs=n_runs, limit=limit, task="slot_filling")
+
+
+def run(dataset="conll", exemplar=True, coT=True, defn=True, tf=True, name_meta=""):
+    print(f"Running for: {dataset}")
+    model, tokenizer = load_model_and_tokenizer("bigscience/bloomz-560m", model_type="causal")
+    algorithm = Algorithm(model=model, tokenizer=tokenizer)
+
+    # Constants - Define outside the function if these don't change across calls
+    other_limit = 3
+    other_nruns = 1
+    subdataset = ""
+
+    # Dataset evaluation function mapping
+    dataset_to_evalfn = {"conll": eval_conll, "atis": eval_atis, "media": eval_media}
+
+    # Check if the dataset is supported
+    eval_fn = dataset_to_evalfn.get(dataset)
+    if not eval_fn:
         raise ValueError(f"Unknown Dataset: {dataset}")
 
-    model, tokenizer = load_model_and_tokenizer("bigscience/bloomz-560m", model_type="causal")
-
-    algorithm = Algorithm(model=model, tokenizer=tokenizer)
+    # Run the evaluation
     micros, macros, df = eval_fn(
-        algorithm,
-        n_runs=other_nruns,
-        exemplar=exemplar,
-        coT=coT,
-        defn=defn,
-        tf=tf,
-        limit=other_limit,
-        add_info=subdataset,
+        algorithm, n_runs=other_nruns, limit=other_limit, coT=coT, defn=defn, tf=tf, version="original"
     )
-    print(
-        f"Final Results For {name_meta} | {dataset} {'('+subdataset+')' if subdataset is not None else ''}) "
-        f"|CoT {coT} | Exemplar {exemplar} (tf {tf}) |Defn {defn}"
-    )
+
+    # print(
+    #     f"Final Results For {name_meta} | {dataset} {'('+subdataset+')' if subdataset is not None else ''}) "
+    #     f"|CoT {coT} | Exemplar {exemplar} (tf {tf}) |Defn {defn}"
+    # )
     print(f"Micro f1_means: {micros.mean()}")
     print(f"Micro f1_stds: {micros.std()}")
     print(f"Macro f1_means: {macros.mean()}")
@@ -181,42 +255,36 @@ def run_all_datasets(
     subdataset_exclude=[],
 ):
     d = {}
-    datasets = ["conll", "genia", "crossner", "fewnerd", "tweetner", "fabner"]
-    subdatasets = {"crossner": ["politics", "literature", "ai", "science", "music"], "fewnerd": ["test"]}
+    # datasets = ["conll", "genia", "crossner", "fewnerd", "tweetner", "fabner"]
+    # subdatasets = {"crossner": ["politics", "literature", "ai", "science", "music"], "fewnerd": ["test"]}
+    datasets = ["media", "atis", "snips", "conll"]
     for dataset in datasets:
+        micro, macro = run(dataset=dataset, coT=coT, exemplar=exemplar, defn=defn, tf=tf, name_meta=name_meta)
+        d[dataset] = [(macro * 100).mean(), (macro * 100).std(), (micro * 100).mean(), (micro * 100).std()]
         if dataset in dataset_exclude:
             continue
-        sub = subdatasets.get(dataset, None)
-        if sub is None:
-            micro, macro = run(
-                dataset=dataset, coT=coT, exemplar=exemplar, defn=defn, tf=tf, name_meta=name_meta
-            )
-            d[dataset] = [
-                (macro * 100).mean(),
-                (macro * 100).std(),
-                (micro * 100).mean(),
-                (micro * 100).std(),
-            ]
-        else:
-            for s in sub:
-                if s in subdataset_exclude:
-                    continue
-                macro, micro = run(
-                    dataset=dataset,
-                    subdataset=s,
-                    coT=coT,
-                    exemplar=exemplar,
-                    defn=defn,
-                    tf=tf,
-                    name_meta=name_meta,
-                )
-                d[f"{dataset}_{s}"] = [
-                    (macro * 100).mean(),
-                    (macro * 100).std(),
-                    (micro * 100).mean(),
-                    (micro * 100).std(),
-                ]
     return d
+
+
+# else:
+# for s in sub:
+#     if s in subdataset_exclude:
+#         continue
+#     macro, micro = run(
+#         dataset=dataset,
+#         subdataset=s,
+#         coT=coT,
+#         exemplar=exemplar,
+#         defn=defn,
+#         tf=tf,
+#         name_meta=name_meta,
+#     )
+#     d[f"{dataset}_{s}"] = [
+# (macro * 100).mean(),
+# (macro * 100).std(),
+# (micro * 100).mean(),
+# (micro * 100).std(),
+# ]
 
 
 def ablate_all(

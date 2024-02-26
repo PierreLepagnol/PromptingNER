@@ -1,4 +1,6 @@
 import os
+import re
+import string
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -197,30 +199,65 @@ def miniproc(x):
         return x
 
 
-def sample_all_types(dset, min_k=5):
+import pandas as pd
+
+
+def sample_all_types(dset: pd.DataFrame, min_k=5):
+    """
+    Samples a subset of rows from the given DataFrame ensuring that all unique types
+    present in the 'exact_types' column are included in the subset. The sampling starts
+    with a minimum number of rows and increases if necessary to include all types.
+
+    The 'exact_types' column of the DataFrame is expected to contain lists of types for
+    each row. A helper function, `miniproc`, is applied to each element in these lists
+    to process the types before determining uniqueness.
+
+    Parameters:
+    - dset (pd.DataFrame): The input DataFrame from which to sample.
+    - min_k (int): The minimum number of rows to start sampling from. Default is 5.
+
+    Returns:
+    - pd.DataFrame: A subset of the original DataFrame that includes at least one instance
+      of each unique type found in the 'exact_types' column after processing by `miniproc`.
+    """
+
+    # Initialize a list to store all unique types found in the entire DataFrame.
     total_types = []
+
+    # Gather all unique types from the 'exact_types' column across all rows.
     for i in dset.index:
         types = list(set([miniproc(x) for x in dset.loc[i, "exact_types"]]))
         total_types.extend(types)
-    total_types = list(set(total_types))
-    done = False
-    k = min_k
-    i = 0
-    minidset = None
+    total_types = list(set(total_types))  # Remove duplicates to ensure uniqueness.
+
+    # Initialize variables for the while loop to sample subsets of rows.
+    done = False  # Flag to indicate when a satisfactory subset is found.
+    k = min_k  # Start with a minimum sample size.
+    minidset = None  # To store the sampled subset.
+
+    # Loop until a subset containing all unique types is found.
     while not done:
-        selected_types = []
-        minidset = dset.sample(k).reset_index(drop=True)
+        selected_types = []  # To store types found in the current sampled subset.
+        minidset = dset.sample(k).reset_index(drop=True)  # Sample 'k' rows randomly.
+
+        # Gather unique types from the sampled subset.
         for i in minidset.index:
             types = list(set([miniproc(x) for x in minidset.loc[i, "exact_types"]]))
             selected_types.extend(types)
-        selected_types = list(set(selected_types))
+        selected_types = list(set(selected_types))  # Ensure uniqueness.
+
+        print(f"Selected {len(selected_types)} types")
+
+        # Check if the subset includes all types. If so, terminate the loop.
         if len(selected_types) == len(total_types):
             done = True
             break
-        i += 1
+
+        # Increase the sample size after every 10 iterations without success.
         if (i + 1) % 10 == 0:
             k += 1
-    return minidset
+
+    return minidset  # Return the satisfactory subset.
 
 
 def save(func, name):
@@ -251,23 +288,6 @@ def aggregate_to_dict(listoftypes) -> dict:
     if len(listoftypes) == 0:
         return {}
     else:
-        # data_list = [
-        #     ("je", "B-command-tache"),
-        #     ("voudrais", "I-command-tache"),
-        #     ("euh", "I-command-tache"),
-        #     ("réserver", "I-command-tache"),
-        #     ("pour", "B-localisation-ville"),
-        #     ("la", "I-localisation-ville"),
-        #     ("ville", "I-localisation-ville"),
-        #     ("de", "I-localisation-ville"),
-        #     ("Nice", "I-localisation-ville"),
-        #     ("du", "B-temps-date"),
-        #     ("premier", "I-temps-date"),
-        #     ("au", "B-temps-date"),
-        #     ("trois", "I-temps-date"),
-        #     ("novembre", "I-temps-date"),
-        # ]
-
         return aggregate_phrases_corrected(listoftypes)
 
 
@@ -327,7 +347,7 @@ def load_media(split="test", version="original"):
         data.append([text, true_types, slot_filling, intent])
 
     data[3]
-    df = pd.DataFrame(columns=["text", "entities", "types", "intent"], data=data)  # "exact_types"
+    df = pd.DataFrame(columns=["text", "entities", "exact_types", "intent"], data=data)  # "exact_types"
     return df
 
 
