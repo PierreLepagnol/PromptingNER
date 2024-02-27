@@ -523,6 +523,13 @@ class Config:
     """
 
     def zs_format_without_chain_of_thoughts(self, alg: Algorithm, tf=True):
+        """
+        Set the task format for zero-shot learning without chain of thoughts.
+
+        Args:
+            alg (Algorithm): The algorithm object to set the task format for.
+            tf (bool, optional): Whether to include true/false indicators in the format. Defaults to True.
+        """
         whole_task = "Q: Given the paragraph below, identify the list of entities " "Answer in the format: \n"
         if not tf:
             alg.format_task = whole_task + self.exemplar_format
@@ -530,6 +537,13 @@ class Config:
             alg.format_task = whole_task + self.tf_format
 
     def zs_format_with_chain_of_thoughts(self, alg: Algorithm, tf=True):
+        """
+        Set the task format for zero-shot learning with chain of thoughts.
+
+        Args:
+            alg (Algorithm): The algorithm object to set the task format for.
+            tf (bool, optional): Whether to include true/false indicators in the format. Defaults to True.
+        """
         if tf:
             whole_task = (
                 "Q: Given the paragraph below, identify a list of possible entities "
@@ -546,6 +560,13 @@ class Config:
             alg.format_task = whole_task + self.no_tf_format
 
     def fs_format_without_chain_of_thoughts(self, alg: Algorithm, tf=True):
+        """
+        Set the task format for few-shot learning without chain of thoughts.
+
+        Args:
+            alg (Algorithm): The algorithm object to set the task format for.
+            tf (bool, optional): Whether to include true/false indicators in the format. Defaults to True.
+        """
         whole_task = "Q: Given the paragraph below, identify the list of entities \nParagraph:"
         exemplar_construction = ""
         if not tf:
@@ -561,6 +582,13 @@ class Config:
         alg.exemplar_task = exemplar_construction
 
     def fs_format_with_chain_of_thoughts(self, alg: Algorithm, tf=True):
+        """
+        Set the task format for few-shot learning with chain of thoughts.
+
+        Args:
+            alg (Algorithm): The algorithm object to set the task format for.
+            tf (bool, optional): Whether to include true/false indicators in the format. Defaults to True.
+        """
         # Use TRUE | FALSE
         if tf:
             whole_task = (
@@ -590,14 +618,15 @@ class Config:
             alg.exemplar_task = exemplar_construction
 
     def set_config(self, alg: Algorithm, exemplar=True, coT=True, tf=True, defn=True):
-        """Set la config for the algorithm
+        """
+        Set the configuration for the algorithm.
 
         Args:
-            alg (Algorithm): _description_
-            exemplar (bool, optional): Zero-shot ou Few-shot. Defaults to True.
-            coT (bool, optional): Template Chain of Toughts. Defaults to True.
-            tf (bool, optional): Template avec TRUE | FALSE. Defaults to True.
-            defn (bool, optional): Template avec definition. Defaults to True.
+            alg (Algorithm): The algorithm object to set the configuration for.
+            exemplar (bool, optional): Whether to use few-shot learning. Defaults to True.
+            coT (bool, optional): Whether to include chain of thoughts in the format. Defaults to True.
+            tf (bool, optional): Whether to include true/false indicators in the format. Defaults to True.
+            defn (bool, optional): Whether to include definitions in the task. Defaults to True.
         """
         if isinstance(alg, MultiAlgorithm):
             coT = False
@@ -647,6 +676,16 @@ class Config:
                 self.fs_format_without_chain_of_thoughts(alg, tf)
 
     def autogenerate_annotations(self, alg: Algorithm, texts, tokens, labels, max_examples=3):
+        """
+        Generate annotations for the given texts and tokens.
+
+        Args:
+            alg (Algorithm): The algorithm object to generate annotations for.
+            texts (list): The list of texts to generate annotations for.
+            tokens (list): The list of tokens to generate annotations for.
+            labels (list): The list of labels to generate annotations for.
+            max_examples (int, optional): The maximum number of examples to generate annotations for. Defaults to 3.
+        """
         cot_exemplars = []
         for i in range(len(texts[:max_examples])):
             text = texts[i]
