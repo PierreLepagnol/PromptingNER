@@ -703,6 +703,10 @@ class AtisConfig(Config):
 
 
 class MediaConfig(Config):
+    """
+    This class is a subclass of Config, used to configure the task format for MEDIA tasks.
+    """
+
     defn = """An entity is a person (PER), title, named organization (ORG), location (LOC), country (LOC) or nationality (MISC).
         Names, first names, last names, countries are entities.
         Nationalities are entities even if they adjectives.
@@ -906,6 +910,10 @@ class MediaConfig(Config):
 
 
 class ConllConfig(Config):
+    """
+    This class is a subclass of Config, used to configure the task format for CoNLL tasks.
+    """
+
     defn = (
         "An entity is a person (PER), title, named organization (ORG), location (LOC), country (LOC) or nationality (MISC)."
         "Names, first names, last names, countries are entities. Nationalities are entities even if they are "
