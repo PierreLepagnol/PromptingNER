@@ -1,6 +1,7 @@
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import List, Optional
 
 import pandas as pd
 from datasets import load_dataset
@@ -273,11 +274,11 @@ class MediaPaths:
     directory = Path("/home/lepagnol/Documents/These/NER/MEDIA")
 
     def __post_init__(self):
-        directory = self.directory / f"media_{self.version}" / self.split
+        directory = self.directory / f"media_{self.version}"
 
-        self.datasets_text = directory / "seq.in"
-        self.dataset_slot_filling = directory / "seq.out"
-        self.dataset_intent = directory / "label"
+        self.dataset = directory / f"{self.split}.txt"
+        self.dataset_slots = directory / "slot_label.txt"  # List of different slots
+        self.dataset_intents = directory / "intent_label.txt"  # List of different intents
 
 
 def aggregate_to_dict(listoftypes) -> dict:
@@ -305,44 +306,55 @@ def aggregate_phrases_corrected(list_of_tuples):
     return aggregated_dict
 
 
+def splitting_into_slots(text_concepts: dict, separator: str = "-"):
+    for key, value in text_concepts.items():
+        # Split the value by hyphen and update the new dictionary
+        text_concepts[key] = value.split(separator)
+    return text_concepts
+
+
+def transform_obi_to_proper_format(dataset: List[str], separator: Optional[str] = None) -> list:
+    data = []
+    entities = []
+    exact_types = []
+    for line in dataset:
+        if line != "\n":
+            items = line.replace("\n", "").split(separator)
+            entities.append(items[0])
+            exact_types.append(items[1])
+        else:
+            assert len(entities) == len(exact_types)
+            data.append({"text": " ".join(entities), "entities": entities, "exact_types": exact_types})
+            entities = []
+            exact_types = []
+    return data
+
+
 def load_media(split="test", version="original"):
     assert version in ["original", "speechbrain_full", "speechbrain_relax"]
 
     paths = MediaPaths(version=version, split=split)
 
-    with open(paths.datasets_text, "r") as file:
-        texts = file.readlines()
+    with open(paths.dataset_slots, "r") as file:
+        list_of_slots = file.readlines()
 
-    with open(paths.dataset_slot_filling, "r") as file:
+    with open(paths.dataset_intents, "r") as file:
+        list_of_intents = file.readlines()
+
+    with open(paths.dataset, "r") as file:
         dataset_slot_filling = file.readlines()
 
-    with open(paths.dataset_intent, "r") as file:
-        dataset_intent = file.readlines()
+    data = transform_obi_to_proper_format(dataset_slot_filling)
 
-    print("len(texts):", len(texts))
-    print("len(dataset_slot_filling):", len(dataset_slot_filling))
-    print("len(dataset_intent):", len(dataset_intent))
+    # Adding a key-value pair to dictionaries where name is Bob
+    for item in data:
+        item["text_concepts"] = aggregate_to_dict(list(zip(item["entities"], item["exact_types"])))
 
-    data = []
-    counter = 0
-    for text, slot_filling, intent in zip(texts, dataset_slot_filling, dataset_intent):
-        # print(counter)
-        if counter == 3:
-            print(text, slot_filling, intent)
-        text_list = text.replace("\n", "").split()
-        slot_filling = slot_filling.replace("\n", "").split()
-        intent = intent.replace("\n", "").split()
-        true_types = []
-        counter += 1
+    # splitting_into_slots
+    for item in data:
+        item["text_concepts_splitted"] = splitting_into_slots(item["text_concepts"])
 
-        for i, word in enumerate(text_list):
-            if slot_filling[i] != "O":
-                true_types.append((word, slot_filling[i]))
-        true_types = aggregate_to_dict(true_types)
-
-        data.append({"text": text, "entities": true_types, "exact_types": slot_filling, "intent": intent})
-
-    df = pd.DataFrame(data=data)  # "exact_types"
+    df = pd.DataFrame(data=data)  # final dataframe
     return df
 
 
@@ -353,8 +365,6 @@ class SnipsPaths:
 
     def __post_init__(self):
         directory = self.directory
-
-        self.datasets_text = directory / f"snips.{self.split}.txt"
         self.dataset_slot_filling = directory / f"snips.{self.split}.crf"
 
 
@@ -362,30 +372,19 @@ def load_snips(split="test"):
     paths = SnipsPaths(split=split)
 
     # Load crf datasets
-    with open(paths.datasets_text, "r") as file:
-        texts = file.readlines()
-
     with open(paths.dataset_slot_filling, "r") as file:
         dataset_slot_filling = file.readlines()
 
-    print("len(texts):", len(texts))
-    print("len(dataset_slot_filling):", len(dataset_slot_filling))
-    data = []
-    entities = []
-    exact_types = []
-    for line in dataset_slot_filling:
-        if line != "\n":
-            items = line.replace("\n", "").split("\t")
-            entities.append(items[0])
-            exact_types.append(items[1])
-        else:
-            assert len(entities) == len(exact_types)
-            data.append({"text": " ".join(entities), "entities": entities, "exact_types": exact_types})
-            entities = []
-            exact_types = []
+    data = transform_obi_to_proper_format(dataset_slot_filling, separator="\t")
+
+    for item in data:
+        item["text_concepts"] = aggregate_to_dict(list(zip(item["entities"], item["exact_types"])))
+
+    # splitting_into_slots
+    for item in data:
+        item["text_concepts_splitted"] = splitting_into_slots(item["text_concepts"], separator="_")
 
     df = pd.DataFrame(data=data)
-    assert len(df) == len(texts)
     return df
 
 
@@ -396,27 +395,32 @@ class AtisPaths:
 
     def __post_init__(self):
         directory = self.directory
-
-        self.datasets_text_slots = directory / f"atis.{self.split}.iob"
+        self.dataset_slot_filling = directory / f"atis.{self.split}.iob"
 
 
 def load_atis(split="test"):
     paths = AtisPaths(split=split)
 
     # Load crf datasets
-    with open(paths.datasets_text_slots, "r") as file:
-        texts_n_slots = file.readlines()
+    with open(paths.dataset_slot_filling, "r") as file:
+        dataset_slot_filling = file.readlines()
 
-    print("len(texts_n_slots):", len(texts_n_slots))
     data = []
     entities = []
     exact_types = []
-    for line in texts_n_slots:
+    for line in dataset_slot_filling:
         items = line.replace("\n", "").split("\t")
         entities = items[0].split()[1:-1]
         exact_types = items[1].split()[1:-1]
         assert len(entities) == len(exact_types)
         data.append({"text": " ".join(entities), "entities": entities, "exact_types": exact_types})
+
+    for item in data:
+        item["text_concepts"] = aggregate_to_dict(list(zip(item["entities"], item["exact_types"])))
+
+    # splitting_into_slots
+    for item in data:
+        item["text_concepts_splitted"] = splitting_into_slots(item["text_concepts"], separator=".")
 
     df = pd.DataFrame(data=data)
     return df
@@ -424,5 +428,6 @@ def load_atis(split="test"):
 
 if __name__ == "__main__":
     # load_conll2003("test")
-    # load_media(split="test")
+    load_media(split="test")
+    load_snips(split="test")
     load_atis(split="test")

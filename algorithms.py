@@ -488,6 +488,14 @@ class MultiAlgorithm(Algorithm):
 
 
 class Config:
+    """
+    This class is used to configure the task format for the algorithm.
+    It contains formats for zero-shot and few-shot learning, with and without chain of thoughts,
+    and with and without true/false indicators.
+    """
+
+    concept_definitions = ""
+
     cot_format = """
     Format: 
     
@@ -656,15 +664,11 @@ class AtisConfig(Config):
 
 
 class MediaConfig(Config):
-    defn = (
-        "An entity is a person (PER), title, named organization (ORG), location (LOC), country (LOC) or nationality (MISC)."
-        "Names, first names, last names, countries are entities. Nationalities are entities even if they are "
-        "adjectives. Sports, sporting events, adjectives, verbs, numbers, "
-        "adverbs, abstract concepts, sports, are not entities. Dates, years and times are not entities. "
-        "Possessive words like I, you, him and me are not entities. "
-        "If a sporting team has the name of their location and the location is used to refer to the team, "
-        "it is an entity which is an organisation, not a location"
-    )
+    defn = """An entity is a person (PER), title, named organization (ORG), location (LOC), country (LOC) or nationality (MISC).
+        Names, first names, last names, countries are entities.
+        Nationalities are entities even if they adjectives.
+        Sports, sporting events, adjectives, verbs, adverbs, abstract concepts, sports, are not entities.
+        Dates, years and times are not Possessive words like I, you, him and me are not If a sporting team has the name of their location and the location is used to refer to the  it is an entity which is an organisation, not a location"""
 
     defn = "An entity is a person (PER), title, named organization (ORG), location (LOC), country (LOC) or nationality (MISC)."
 
@@ -712,8 +716,8 @@ class MediaConfig(Config):
     cot_exemplars = [cot_exemplar_1, cot_exemplar_2, cot_exemplar_3]
 
     no_tf_exemplar_1 = """
-        After bowling Somerset out for 83 on the opening morning at Grace Road , Leicestershire extended their first innings by 94 runs before being bowled out for 296 with England discard Andy Caddick taking three for 83 .
-        
+ After bowling Somerset out for 83 on the opening morning at Grace Road , Leicestershire extended their first innings by 94 runs before being bowled out for 296 with England discard Andy Caddick taking three for 83 .
+ 
         Answer:
         1. Somerset | Somerset is used as a sporting team here, not a location hence it is an organisation (ORG)
         2. Grace Road | the game is played at Grace Road, hence it is a place or location (LOC)
